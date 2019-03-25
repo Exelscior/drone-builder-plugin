@@ -33,7 +33,15 @@ set -e
 
 if [[ ${RESPONSE} -ne 0 ]]
 then
-    docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -t ${PLUGIN_REPO}:testing -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
+    build_args=""
+    if [[ ! -z ${PLUGIN_ARGS} ]]
+    then
+        for arg in $(echo ${PLUGIN_ARGS} | sed -e "s/,/ /g")
+        do
+            build_args="${build_args} --build-arg ${arg%%'='*}=\"${arg#*'='}\""
+        done
+    fi
+    docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -t ${PLUGIN_REPO}:testing ${build_args} -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
     docker push ${PLUGIN_REPO}:${IMAGE_HASH}
     docker push ${PLUGIN_REPO}:testing
 fi
