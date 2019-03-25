@@ -7,6 +7,16 @@ do
     IMAGE_HASH=${IMAGE_HASH}$(md5sum ${file} | head -c7)
 done
 
+if [[ -z ${PLUGIN_TAG} ]]
+then
+    if [[ ${DRONE_BRANCH} == *"fullCI-"* ]]
+    then
+        PLUGIN_TAG="testing"
+    else
+        PLUGIN_TAG="${DRONE_BRANCH}"
+    fi
+fi
+
 if [[ ! -z ${PLUGIN_USERNAME} ]]
 then
     if [[ -z ${PLUGIN_REGISTRY} ]]
