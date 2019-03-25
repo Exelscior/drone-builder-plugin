@@ -1,20 +1,20 @@
 #!/bin/bash
 set -e
 
-IMAGE_HASH=""
-for file in $(echo ${PLUGIN_FILES} | sed -e "s/,/ /g")
-do
-    IMAGE_HASH=${IMAGE_HASH}$(md5sum ${file} | head -c7)
-done
-
-if [[ -z ${PLUGIN_TAG} ]]
+if [[ -z ${PLUGIN_CONTEXT} ]]
 then
-    if [[ ${DRONE_BRANCH} == *"fullCI-"* ]]
-    then
-        PLUGIN_TAG="testing"
-    else
-        PLUGIN_TAG="${DRONE_BRANCH}"
-    fi
+    PLUGIN_CONTEXT="."
+fi
+
+if [[ -z ${PLUGIN_FILES} ]]
+then
+    IMAGE_HASH=${DRONE_COMMIT_AFTER}
+else
+    IMAGE_HASH=""
+    for file in $(echo ${PLUGIN_FILES} | sed -e "s/,/ /g")
+    do
+        IMAGE_HASH=${IMAGE_HASH}$(md5sum ${file} | head -c7)
+    done
 fi
 
 if [[ ! -z ${PLUGIN_USERNAME} ]]
@@ -27,19 +27,32 @@ then
     fi
 fi
 set +e
-docker pull ${PLUGIN_IMAGE}:${IMAGE_HASH}
+docker pull ${PLUGIN_REPO}:${IMAGE_HASH}
 RESPONSE=$?
 set -e
 
 if [[ ${RESPONSE} -ne 0 ]]
 then
-    docker build -t ${PLUGIN_IMAGE}:${IMAGE_HASH} -f ${PLUGIN_DOCKERFILE} .
-    docker push ${PLUGIN_IMAGE}:${IMAGE_HASH}
+    docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
+    docker push ${PLUGIN_REPO}:${IMAGE_HASH}
 fi
 if [[ "${PLUGIN_FORCETAG}" == "true" ]]
 then
-    docker tag ${PLUGIN_IMAGE}:${IMAGE_HASH} ${PLUGIN_IMAGE}:${PLUGIN_TAG}
-    docker push ${PLUGIN_IMAGE}:${PLUGIN_TAG}
+    if [[ -z ${PLUGIN_TAGS} ]]
+    then
+        if [[ ${DRONE_BRANCH} == *"fullCI-"* ]]
+        then
+            PLUGIN_TAGS="testing"
+        else
+            PLUGIN_TAGS="${DRONE_BRANCH}"
+        fi
+    fi
+    current_tag=${IMAGE_HASH}
+    for tag in $(echo ${PLUGIN_TAGS} | sed -e "s/,/ /g")
+    do
+        docker tag ${PLUGIN_REPO}:${current_tag} ${PLUGIN_REPO}:${PLUGIN_TAG}
+        docker push ${PLUGIN_REPO}:${PLUGIN_TAG}
+    done
 fi
 
 exit 0
