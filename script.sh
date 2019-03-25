@@ -33,8 +33,9 @@ set -e
 
 if [[ ${RESPONSE} -ne 0 ]]
 then
-    docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
+    docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -t ${PLUGIN_REPO}:testing -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
     docker push ${PLUGIN_REPO}:${IMAGE_HASH}
+    docker push ${PLUGIN_REPO}:testing
 fi
 if [[ "${PLUGIN_FORCETAG}" == "true" ]]
 then
