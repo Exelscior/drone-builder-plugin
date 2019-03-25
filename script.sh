@@ -8,7 +8,7 @@ fi
 
 if [[ -z ${PLUGIN_FILES} ]]
 then
-    IMAGE_HASH=${DRONE_COMMIT_AFTER}
+    IMAGE_HASH=$(echo ${DRONE_COMMIT_AFTER} | head -c7)
 else
     IMAGE_HASH=""
     for file in $(echo ${PLUGIN_FILES} | sed -e "s/,/ /g")
@@ -16,6 +16,8 @@ else
         IMAGE_HASH=${IMAGE_HASH}$(md5sum ${file} | head -c7)
     done
 fi
+
+echo $IMAGE_HASH
 
 if [[ ! -z ${PLUGIN_USERNAME} ]]
 then
