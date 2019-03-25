@@ -33,15 +33,13 @@ set -e
 
 if [[ ${RESPONSE} -ne 0 ]]
 then
-    docker build -t ${PLUGIN_IMAGE}:${IMAGE_HASH} -t ${PLUGIN_IMAGE}:${PLUGIN_TAG} -f ${PLUGIN_DOCKERFILE} .
+    docker build -t ${PLUGIN_IMAGE}:${IMAGE_HASH} -f ${PLUGIN_DOCKERFILE} .
     docker push ${PLUGIN_IMAGE}:${IMAGE_HASH}
+fi
+if [[ "${PLUGIN_FORCETAG}" == "true" ]]
+then
+    docker tag ${PLUGIN_IMAGE}:${IMAGE_HASH} ${PLUGIN_IMAGE}:${PLUGIN_TAG}
     docker push ${PLUGIN_IMAGE}:${PLUGIN_TAG}
-else
-    if [[ "${PLUGIN_FORCETAG}" == "true" ]]
-    then
-        docker tag ${PLUGIN_IMAGE}:${IMAGE_HASH} ${PLUGIN_IMAGE}:${PLUGIN_TAG}
-        docker push ${PLUGIN_IMAGE}:${PLUGIN_TAG}
-    fi
 fi
 
 exit 0
