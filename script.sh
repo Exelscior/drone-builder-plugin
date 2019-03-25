@@ -11,9 +11,9 @@ if [[ ! -z ${PLUGIN_USERNAME} ]]
 then
     if [[ -z ${PLUGIN_REGISTRY} ]]
     then
-        docker login -u ${PLUGIN_USERNAME} -p ${PLUGIN_PASSWORD}
+        docker login -u ${PLUGIN_USERNAME} -p ${PLUGIN_PASSWORD} > /dev/null 2>&1
     else
-        docker login -u ${PLUGIN_USERNAME} -p ${PLUGIN_PASSWORD} ${PLUGIN_REGISTRY}
+        docker login -u ${PLUGIN_USERNAME} -p ${PLUGIN_PASSWORD} ${PLUGIN_REGISTRY} > /dev/null 2>&1
     fi
 fi
 set +e
