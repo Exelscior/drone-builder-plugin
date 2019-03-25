@@ -17,8 +17,6 @@ else
     done
 fi
 
-echo $IMAGE_HASH
-
 if [[ ! -z ${PLUGIN_USERNAME} ]]
 then
     if [[ -z ${PLUGIN_REGISTRY} ]]
