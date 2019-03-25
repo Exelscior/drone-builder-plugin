@@ -49,12 +49,7 @@ if [[ "${PLUGIN_FORCETAG}" == "true" ]]
 then
     if [[ -z ${PLUGIN_TAGS} ]]
     then
-        if [[ ${DRONE_BRANCH} == *"fullCI-"* ]]
-        then
-            PLUGIN_TAGS="testing"
-        else
-            PLUGIN_TAGS="${DRONE_BRANCH}"
-        fi
+        PLUGIN_TAGS=$(echo ${DRONE_BRANCH} | sed -e "s:/:-:g")
     fi
     current_tag=${IMAGE_HASH}
     for tag in $(echo ${PLUGIN_TAGS} | sed -e "s/,/ /g")
