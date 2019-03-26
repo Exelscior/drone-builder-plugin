@@ -45,6 +45,7 @@ then
                 && new_value=$(env | grep $(echo ${value} | sed -rn "s/\{\{(.*?)\}\}/\1/p")) \
                 && echo ${new_value#*"="} \
                 || echo ${value})
+            set -e
             build_args="${build_args} --build-arg \"${key}=${value}\""
         done
     fi
