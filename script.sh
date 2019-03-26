@@ -38,7 +38,7 @@ then
     then
         for arg in $(echo ${PLUGIN_ARGS} | sed -e "s/,/ /g")
         do
-            build_args="${build_args} --build-arg ${arg%%'='*}=\"${arg#*'='}\""
+            build_args="${build_args} --build-arg \"${arg}\""
         done
     fi
     docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -t ${PLUGIN_REPO}:testing ${build_args} -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
