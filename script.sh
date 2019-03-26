@@ -38,7 +38,14 @@ then
     then
         for arg in $(echo ${PLUGIN_ARGS} | sed -e "s/,/ /g")
         do
-            build_args="${build_args} --build-arg \"${arg}\""
+            key=${arg%%"="*}
+            value=${arg#*"="}
+            set +e
+            value=$(echo ${value} | grep -q "{{.*}}" \
+                && new_value=$(env | grep $(echo ${value} | sed -rn "s/\{\{(.*?)\}\}/\1/p")) \
+                && echo ${new_value#*"="} \
+                || echo ${value})
+            build_args="${build_args} --build-arg \"${key}=${value}\""
         done
     fi
     docker build -t ${PLUGIN_REPO}:${IMAGE_HASH} -t ${PLUGIN_REPO}:testing ${build_args} -f ${PLUGIN_DOCKERFILE} ${PLUGIN_CONTEXT}
