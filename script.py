@@ -36,7 +36,6 @@ class ManagementUtility(object):
         self.context = getenv("PLUGIN_CONTEXT", ".")
         self.debug = convert_to_bool(getenv("PLUGIN_DEBUG", False))
         self.push_tags = convert_to_bool(getenv("PLUGIN_PUSHTAGS", True))
-        self.commit_tag = convert_to_bool(getenv("PLUGIN_COMMITTAG", True))
         self.tags = convert_to_iterable(getenv("PLUGIN_TAGS", []))
         self.files_to_hash = convert_to_iterable(getenv("PLUGIN_FILES", []))
         self.commands = convert_to_iterable(getenv("PLUGIN_COMMANDS", []))
@@ -63,14 +62,15 @@ class ManagementUtility(object):
             print(f"get_hash : {file}")
         return hashlib.sha256(file.read_bytes()).hexdigest()
 
-    def run_cmd(self, command):
+    def run_cmd(self, command, expected_returncode: int = 0):
         if self.debug:
             print(f"run_cmd : {command}")
         if command and command[0] in ("'", '"'):
             command = command.strip('"\'')
         command_as_list = command.split(' ')
         response = subprocess.run(command_as_list, capture_output=True)
-        return response.returncode
+        if response.returncode != expected_returncode:
+            raise SystemError(response.stdout.decode("utf8").strip("\n").split("\n")[-1])
 
     def resolve_from_env(self, string: str):
         new_string = string
@@ -107,10 +107,9 @@ class ManagementUtility(object):
         )
 
     def docker_push_all_tags(self):
-        resp = self.run_cmd(f"docker push {self.full_repository}:{self.image_hash}")
+        self.run_cmd(f"docker push {self.full_repository}:{self.image_hash}")
         for tag in self.tags:
-            resp += self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(tag)}")
-        return resp
+            self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(tag)}")
 
     def get_files_hash(self, split: int = 7):
         if not self.files_to_hash:
@@ -142,9 +141,9 @@ class ManagementUtility(object):
 
 
 if __name__ == "__main__":
-    command = ManagementUtility()
+    main = ManagementUtility()
     try:
-        ret = command.execute()
+        ret = main.execute()
     except Exception as err:
         print(f"Error: {err}", file=sys.stderr)
         ret = 1
