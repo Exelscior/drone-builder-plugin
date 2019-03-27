@@ -4,8 +4,8 @@ import re
 import sys
 import hashlib
 import subprocess
-from os import getenv
-from typing import Any, Tuple
+from os import getenv, system
+from typing import Any
 from pathlib import Path
 
 
@@ -20,7 +20,7 @@ def convert_to_bool(arg: Any):
     return True
 
 
-def convert_to_iterable(arg: Any[str, list, tuple], split: str = ",") -> Tuple[str]:
+def convert_to_iterable(arg: Any, split: str = ",") -> tuple:
     if isinstance(arg, (list, tuple)):
         return arg
     if not arg or not isinstance(arg, str):
@@ -52,66 +52,83 @@ class ManagementUtility(object):
         self.image_hash = self.force_tag or self.get_files_hash()
 
     @property
-    def full_repository(self):
+    def full_repository(self) -> str:
         if self.registry == "docker.io" or self.registry in self.repository:
             return self.repository
         return f"{self.registry}/{self.repository}"
 
-    def get_hash(self, file: Path):
+    def get_hash(self, file: Path) -> str:
         if self.debug:
             print(f"get_hash : {file}")
         return hashlib.sha256(file.read_bytes()).hexdigest()
 
-    def run_cmd(self, command, expected_returncode: int = 0):
+    def run_cmd(
+            self, command: str,
+            expected_returncode: int = 0, no_raise: bool = False,
+            capture_output: bool = True
+    ) -> int:
         if self.debug:
-            print(f"run_cmd : {command}")
+            print(f"current path: {Path().absolute().as_posix()}")
+            print(f"run_cmd: {command}")
         if command and command[0] in ("'", '"'):
             command = command.strip('"\'')
-        command_as_list = command.split(' ')
-        response = subprocess.run(command_as_list, capture_output=True)
-        if response.returncode != expected_returncode:
+        command_as_list = [elem for elem in command.split(' ') if elem]
+        response = subprocess.run(command_as_list, capture_output=capture_output)
+        if self.debug:
+            if capture_output:
+                print(f"stdout: '{response.stdout.decode('utf8')}'")
+                print(f"stderr: '{response.stderr.decode('utf8')}'")
+            print(f"returncode: {response.returncode}")
+            print(f"expected_returncode: {expected_returncode}")
+        if not no_raise and response.returncode != expected_returncode:
             raise SystemError(response.stdout.decode("utf8").strip("\n").split("\n")[-1])
+        return response.returncode
 
-    def resolve_from_env(self, string: str):
+    def resolve_from_env(self, string: str) -> str:
         new_string = string
-        match = re.match(ManagementUtility.RESOLVE_REGEX, new_string)
-        if match:
-            for group in match.groups():
-                if hasattr(self, group.lower()):
-                    resolved_value = getattr(self, group.upper())
-                else:
-                    resolved_value = getenv(group, "None")
-                new_string = new_string.replace(f"%{group}%", resolved_value)
-            if self.debug:
-                print(f"resolved string from '{string}' to '{new_string}'")
+        match = True
+        while match:
+            match = re.match(ManagementUtility.RESOLVE_REGEX, new_string)
+            if match:
+                for group in match.groups():
+                    if hasattr(self, group.lower()):
+                        resolved_value = getattr(self, group.lower())
+                    else:
+                        resolved_value = getenv(group, "None")
+                    new_string = new_string.replace(f"%{group}%", resolved_value)
+        if self.debug and new_string != string:
+            print(f"resolved string from '{string}' to '{new_string}'")
         return new_string
 
     def docker_login(self):
-        return self.run_cmd(f"docker login -u {self.username} -p {self.password} {self.registry}")
+        self.run_cmd(f"docker login -u {self.username} -p {self.password} {self.registry}")
 
-    def docker_pull_image(self):
-        return self.run_cmd(f"docker pull {self.full_repository}:{self.image_hash}")
+    def docker_pull_image(self) -> int:
+        return self.run_cmd(f"docker pull {self.full_repository}:{self.image_hash}", no_raise=True)
 
     def docker_build_image(self):
         parsed_build_args = list()
         if self.build_args:
             for arg in self.build_args:
                 parsed_build_args.append(f"--build-arg {self.resolve_from_env(arg)}")
-        all_tags = [f"-t {self.repository}:{self.image_hash}"]
+        all_tags = [f"-t {self.full_repository}:{self.image_hash}"]
         for tag in self.tags:
             all_tags.append(f"-t {self.full_repository}:{self.resolve_from_env(tag)}")
-        return self.run_cmd(
-            "docker build --no-cache --force-rm "
+        self.run_cmd(
+            "docker build --no-cache "
             f"{' '.join(parsed_build_args)} {' '.join(all_tags)} "
-            f"-f {self.dockerfile} {self.context}"
+            f"-f {self.dockerfile} {self.context}",
+            no_raise=True,
+            capture_output=False,
         )
+
 
     def docker_push_all_tags(self):
         self.run_cmd(f"docker push {self.full_repository}:{self.image_hash}")
         for tag in self.tags:
             self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(tag)}")
 
-    def get_files_hash(self, split: int = 7):
+    def get_files_hash(self, split: int = 7) -> str:
         if not self.files_to_hash:
             return self.commit_id
         full_hash = self.get_hash(self.dockerfile)[:split]
@@ -126,12 +143,14 @@ class ManagementUtility(object):
         if self.login:
             self.docker_login()
         pull_response = self.docker_pull_image()
-        if not pull_response:
+        if pull_response == 0:
+            print("Image already exists and has been pulled.")
             for cmd in self.commands:
                 self.run_cmd(self.resolve_from_env(cmd))
             return 0
         print(f"Image '{self.repository}:{self.image_hash}' not found. Building..")
         self.docker_build_image()
+        print("Image built.")
         if self.push_tags:
             print(f"Pushing all tags for image '{self.repository}'")
             self.docker_push_all_tags()
