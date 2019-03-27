@@ -1,8 +1,8 @@
-FROM alpine:latest
+FROM python:3.7.2-alpine3.9
 
-ADD script.sh /bin/
+RUN apk -Uuv add docker
 
-RUN chmod +x /bin/script.sh
-RUN apk -Uuv add bash docker
+COPY script.py /bin/
+RUN chmod +x /bin/script.py
 
-ENTRYPOINT [ "bash", "/bin/script.sh" ]
+ENTRYPOINT [ "/bin/script.py" ]
