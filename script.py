@@ -115,18 +115,20 @@ class ManagementUtility(object):
         return full_hash
 
     def execute(self):
-        for cmd in self.commands:
-            self.run_cmd(cmd)
         if self.login:
             self.docker_login()
         pull_response = self.docker_pull_image()
         if not pull_response:
+            for cmd in self.commands:
+                self.run_cmd(cmd)
             return 0
         print(f"Image '{self.repository}:{self.image_hash}' not found. Building..")
         self.docker_build_image()
         if self.push_tags:
             print(f"Pushing all tags for image '{self.repository}'")
             self.docker_push_all_tags()
+        for cmd in self.commands:
+            self.run_cmd(cmd)
         return 0
 
 
