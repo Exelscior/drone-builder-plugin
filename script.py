@@ -49,7 +49,11 @@ class ManagementUtility(object):
         self.registry = getenv("PLUGIN_REGISTRY", "docker.io")
         self.dockerfile = Path(getenv("PLUGIN_DOCKERFILE", ""))
         self.force_tag = getenv("PLUGIN_FORCETAG")
-        self.image_hash = self.force_tag or self.get_files_hash()
+        self.image_hash = self.get_files_hash()
+
+    @property
+    def pull_tag(self) -> str:
+        return self.force_tag or self.image_hash
 
     @property
     def full_repository(self) -> str:
@@ -86,6 +90,8 @@ class ManagementUtility(object):
 
     def resolve_from_env(self, string: str) -> str:
         new_string = string
+        if new_string and new_string[0] in ("'", '"') and new_string[0] == new_string[-1]:
+            new_string = new_string.strip(new_string[0])
         match = True
         while match:
             match = re.match(ManagementUtility.RESOLVE_REGEX, new_string)
@@ -104,14 +110,14 @@ class ManagementUtility(object):
         self.run_cmd(f"docker login -u {self.username} -p {self.password} {self.registry}")
 
     def docker_pull_image(self) -> int:
-        return self.run_cmd(f"docker pull {self.full_repository}:{self.image_hash}", no_raise=True)
+        return self.run_cmd(f"docker pull {self.full_repository}:{self.pull_tag}", no_raise=True)
 
     def docker_build_image(self):
         parsed_build_args = list()
         if self.build_args:
             for arg in self.build_args:
                 parsed_build_args.append(f"--build-arg {self.resolve_from_env(arg)}")
-        all_tags = [f"-t {self.full_repository}:{self.image_hash}"]
+        all_tags = [f"-t {self.full_repository}:{self.pull_tag}"]
         for tag in self.tags:
             all_tags.append(f"-t {self.full_repository}:{self.resolve_from_env(tag)}")
         self.run_cmd(
@@ -122,16 +128,15 @@ class ManagementUtility(object):
             capture_output=False,
         )
 
-
     def docker_push_all_tags(self):
-        self.run_cmd(f"docker push {self.full_repository}:{self.image_hash}")
+        self.run_cmd(f"docker push {self.full_repository}:{self.pull_tag}")
         for tag in self.tags:
             self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(tag)}")
 
     def get_files_hash(self, split: int = 7) -> str:
         if not self.files_to_hash:
             return self.commit_id
-        full_hash = self.get_hash(self.dockerfile)[:split]
+        full_hash = ""
         for path in self.files_to_hash:
             file = Path(path)
             full_hash += self.get_hash(file)[:split]
@@ -148,7 +153,9 @@ class ManagementUtility(object):
             for cmd in self.commands:
                 self.run_cmd(self.resolve_from_env(cmd))
             return 0
-        print(f"Image '{self.repository}:{self.image_hash}' not found. Building..")
+        if self.debug:
+            self.run_cmd("docker images", capture_output=False)
+        print(f"Image '{self.repository}:{self.pull_tag}' not found. Building..")
         self.docker_build_image()
         print("Image built.")
         if self.push_tags:
