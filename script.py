@@ -32,13 +32,14 @@ def convert_to_iterable(arg: Any, split: str = ",") -> tuple:
 class ManagementUtility(object):
     RESOLVE_REGEX = r'.*%(.*?)%.*'
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self.context = getenv("PLUGIN_CONTEXT", ".")
         self.debug = convert_to_bool(getenv("PLUGIN_DEBUG", False))
         self.push_tags = convert_to_bool(getenv("PLUGIN_PUSHTAGS", True))
         self.tags = convert_to_iterable(getenv("PLUGIN_TAGS", []))
         self.files_to_hash = convert_to_iterable(getenv("PLUGIN_FILES", []))
         self.commands = convert_to_iterable(getenv("PLUGIN_COMMANDS", []))
+        self.commands_only = convert_to_bool(getenv("PLUGIN_COMMANDS_ONLY", False))
         self.build_args = convert_to_iterable(getenv("PLUGIN_ARGS", []))
         self.commit_id = getenv("DRONE_COMMIT_AFTER")
         self.commit_branch = getenv("DRONE_BRANCH")
@@ -120,11 +121,10 @@ class ManagementUtility(object):
         all_tags = [f"-t {self.full_repository}:{self.pull_tag}"]
         for tag in self.tags:
             all_tags.append(f"-t {self.full_repository}:{self.resolve_from_env(tag)}")
-        self.run_cmd(
+        return self.run_cmd(
             "docker build --no-cache "
             f"{' '.join(parsed_build_args)} {' '.join(all_tags)} "
             f"-f {self.dockerfile} {self.context}",
-            no_raise=True,
             capture_output=False,
         )
 
@@ -147,17 +147,20 @@ class ManagementUtility(object):
     def execute(self):
         if self.login:
             self.docker_login()
-        pull_response = self.docker_pull_image()
-        if pull_response == 0:
-            print("Image already exists and has been pulled.")
+        if self.commands_only:
+            print("Only running commands as per requested.")
             for cmd in self.commands:
                 self.run_cmd(self.resolve_from_env(cmd))
             return 0
-        if self.debug:
-            self.run_cmd("docker images", capture_output=False)
-        print(f"Image '{self.repository}:{self.pull_tag}' not found. Building..")
-        self.docker_build_image()
-        print("Image built.")
+        pull_response = self.docker_pull_image()
+        if pull_response == 0:
+            print("Image already exists and has been pulled.")
+        else:
+            if self.debug:
+                self.run_cmd("docker images", capture_output=False)
+            print(f"Image '{self.repository}:{self.pull_tag}' not found. Building..")
+            self.docker_build_image()
+            print("Image built.")
         if self.push_tags:
             print(f"Pushing all tags for image '{self.repository}'")
             self.docker_push_all_tags()
