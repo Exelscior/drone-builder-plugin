@@ -129,9 +129,12 @@ class ManagementUtility(object):
         )
 
     def docker_push_all_tags(self):
-        self.run_cmd(f"docker push {self.full_repository}:{self.pull_tag}")
+        self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(self.pull_tag)}")
+        prev_tag = self.resolve_from_env(self.pull_tag)
         for tag in self.tags:
+            self.run_cmd(f"docker tag {self.full_repository}:{prev_tag} {self.full_repository}:{self.resolve_from_env(tag)}")
             self.run_cmd(f"docker push {self.full_repository}:{self.resolve_from_env(tag)}")
+            prev_tag = self.resolve_from_env(tag)
 
     def get_files_hash(self, split: int = 7) -> str:
         if not self.files_to_hash:
