@@ -5,4 +5,4 @@ RUN apk -Uuv add docker
 COPY script.py /bin/
 RUN chmod +x /bin/script.py
 
-ENTRYPOINT [ "/bin/script.py" ]
+ENTRYPOINT [ "python", "-u", "/bin/script.py" ]

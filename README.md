@@ -1,8 +1,8 @@
-# Drone Dependencies Layer Plugin
-Plugin for the [DroneCI solution](https://drone.io) in order to pull or build a dependency layer image.
+# Drone Image Manager Plugin
+Plugin for the [DroneCI solution](https://drone.io) in order to pull or build an image.
 
-This plugin can be used to add a pipeline or step layer for building a dependency
-layer image for a project.
+This plugin can be used to add a pipeline or step layer for building, publishing, or simply pulling a dependency
+layer image for a project as well as an application layer.
 
 ## Context
 
@@ -90,11 +90,15 @@ The below pipeline configuration demonstrates simple usage of the plugin:
 ```yaml
 steps:
 - name: pull_or_build_deps
-  image: galea/dependencies-plugin
+  image: galea/drone-tools:builder
   settings:
-    image: galea/mypython-image-deps
-    files: [ requirements.txt ]
-    tag: latest
+    repo: galea
+    image: mypython-image-deps
+    files:
+     - deps.Dockerfile
+     - requirements.txt
+    tags:
+     - latest
     dockerfile: ./deps.Dockerfile
   volumes: # Necessary to retain the image over all pipelines
   - name: docker_socket
@@ -103,17 +107,62 @@ steps:
 
 ## Parameter Reference
 
-- image:
-    Image repository for the dependency layer image to be stored
-- files:
-    Array of files to be used for the checksum image tag
-- tag
-    Single "master" tag to be used for the dependency image layer
-- dockerfile
+- **image**:
+
+    Image name for the dependency layer
+
+- **files**:
+
+    List of files to be used for the checksum image tag
+
+- **tags**:
+
+    List of tag to be used during publish
+
+- **push_tags**: *Default:* `false`
+
+    Boolean to indicate weather or not to push images to the registry after the build.
+
+- **force_tag**:
+
+    If specified, this single tag will override image hash building and become the publish tag for the image.
+
+- **dockerfile**:
+
     Path and name to the Dockerfile used to build the dependency layer
-- registry:
-    Registry to be used for pull/push of the image. Defaults to public docker hub.
-- username:
-    Username for the registry
-- password:
+
+- **context**: *Default:* `.`
+
+    Build context sent to `docker build`.
+
+- **args**:
+
+    Build args sent to `docker build`.
+
+- **registry**: *Default:* `docker.io`
+
+    Registry to be used for pull/push of the image.
+
+- **repo**:
+
+    Repository to be used for pull/push of the image.
+
+- **login**: *Default:* `false`
+
+    Registry requires login.
+
+- **username**:
+
+    Username for the registry.
+
+- **password**:
+
     Password for the registry (used with username)
+
+- **commands**:
+
+    List of shell commands to execute right before terminating the script.
+
+- **commands_only**: *Default:* `false`
+
+    Ignore normal execution, run the list of commands then exit. No building, pulling or pushing.
